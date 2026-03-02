@@ -6,14 +6,28 @@ import os
 
 TOKEN = os.getenv("TOKEN")
 GUILD_ID = int(os.getenv("GUILD_ID"))
-CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 ALLOWED_ROLE_IDS = list(map(int, os.getenv("ALLOWED_ROLES").split(",")))
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-staff_data = {}
-message_id = None
+DEPARTMENTS = {
+    "Отдел кадров": {
+        "channel_id": 111111111111111111,
+        "message_id": None,
+        "staff": []
+    },
+    "Отдел СМИ": {
+        "channel_id": 222222222222222222,
+        "message_id": None,
+        "staff": []
+    },
+    "Отдел безопасности": {
+        "channel_id": 333333333333333333,
+        "message_id": None,
+        "staff": []
+    }
+}
 
 @bot.event
 async def on_ready():
@@ -22,24 +36,23 @@ async def on_ready():
 def has_access(member):
     return any(role.id in ALLOWED_ROLE_IDS for role in member.roles)
 
-async def update_embed():
-    global message_id
-    channel = bot.get_channel(CHANNEL_ID)
+async def update_department_embed(department_name):
+    department = DEPARTMENTS[department_name]
+    channel = bot.get_channel(department["channel_id"])
 
     embed = discord.Embed(
-        title="📋 Состав организации",
+        title=f"📋 Состав — {department_name}",
         color=0xf1c40f
     )
 
-    for department, members in staff_data.items():
-        text = "\n".join(members) if members else "—"
-        embed.add_field(name=department, value=text, inline=False)
+    text = "\n".join(department["staff"]) if department["staff"] else "—"
+    embed.description = text
 
-    if message_id is None:
+    if department["message_id"] is None:
         msg = await channel.send(embed=embed)
-        message_id = msg.id
+        department["message_id"] = msg.id
     else:
-        msg = await channel.fetch_message(message_id)
+        msg = await channel.fetch_message(department["message_id"])
         await msg.edit(embed=embed)
 
 app = Flask(__name__)
@@ -49,7 +62,7 @@ def update():
     data = request.json
 
     user_id = int(data["sender_id"])
-    department = data["department"]
+    department_name = data["department"]
     action = data["action"]
     target_id = int(data["target_id"])
 
@@ -59,20 +72,21 @@ def update():
     if not member or not has_access(member):
         return {"status": "no access"}
 
-    mention = f"<@{target_id}>"
+    if department_name not in DEPARTMENTS:
+        return {"status": "unknown department"}
 
-    if department not in staff_data:
-        staff_data[department] = []
+    mention = f"<@{target_id}>"
+    department = DEPARTMENTS[department_name]
 
     if action == "add":
-        if mention not in staff_data[department]:
-            staff_data[department].append(mention)
+        if mention not in department["staff"]:
+            department["staff"].append(mention)
 
     if action == "remove":
-        if mention in staff_data[department]:
-            staff_data[department].remove(mention)
+        if mention in department["staff"]:
+            department["staff"].remove(mention)
 
-    bot.loop.create_task(update_embed())
+    bot.loop.create_task(update_department_embed(department_name))
     return {"status": "updated"}
 
 def run_flask():
