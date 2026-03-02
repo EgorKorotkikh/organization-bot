@@ -5,25 +5,34 @@ import threading
 import os
 
 TOKEN = os.getenv("TOKEN")
-GUILD_ID = int(os.getenv("GUILD_ID"))
-ALLOWED_ROLE_IDS = list(map(int, os.getenv("ALLOWED_ROLES").split(",")))
+
+guild_env = os.getenv("GUILD_ID")
+GUILD_ID = int(guild_env) if guild_env else None
+
+roles_env = os.getenv("ALLOWED_ROLES")
+ALLOWED_ROLE_IDS = list(map(int, roles_env.split(","))) if roles_env else []
+
+if roles_env:
+    ALLOWED_ROLE_IDS = list(map(int, roles_env.split(",")))
+else:
+    ALLOWED_ROLE_IDS = []
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 DEPARTMENTS = {
     "Отдел кадров": {
-        "channel_id": 111111111111111111,
+        "channel_id": 1478104628796063927,
         "message_id": None,
         "staff": []
     },
     "Отдел СМИ": {
-        "channel_id": 222222222222222222,
+        "channel_id": 1478104654775717898,
         "message_id": None,
         "staff": []
     },
     "Отдел безопасности": {
-        "channel_id": 333333333333333333,
+        "channel_id": 1478104678482055249,
         "message_id": None,
         "staff": []
     }
@@ -93,4 +102,5 @@ def run_flask():
     app.run(host="0.0.0.0", port=10000)
 
 threading.Thread(target=run_flask).start()
+print("TOKEN:", TOKEN)
 bot.run(TOKEN)
